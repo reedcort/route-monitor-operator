@@ -1,0 +1,51 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: synthetic-monitor-config-template
+parameters:
+- name: ENABLED
+  description: "Whether the monitor is enabled"
+  required: true
+
+- name: FREQUENCY_MIN
+  description: "Monitoring frequency in minutes"
+  required: true
+
+- name: LOCATIONS
+  description: "Monitoring locations"
+  required: true
+
+- name: MANUALLY_ASSIGNED_APPS
+  description: "Manually assigned applications"
+  required: true
+
+- name: NAME
+  description: "Name of the monitor"
+  required: true
+
+- name: SCRIPT
+  description: "Monitoring script"
+  required: true
+
+- name: TAGS
+  description: "Tags associated with the monitor"
+  required: true
+
+- name: TAGS
+  description: "Type of the monitor"
+  required: true
+
+objects:
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: synthetic-monitor-configmap
+  data:
+    enabled: "${ENABLED}"
+    frequencyMin: ${FREQUENCY_MIN}
+    locations: "${LOCATIONS}"
+    manuallyAssignedApps: "${MANUALLY_ASSIGNED_APPS}"
+    name: "${NAME}"
+    script: "${SCRIPT}"
+    tags: "${TAGS}"
+    type: "${TYPE}"

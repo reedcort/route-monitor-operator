@@ -17,8 +17,40 @@ parameters:
 - name: REPO_NAME
   value: route-monitor-operator
   required: true
+ ##RMO
+- name: ENABLED
+  required: true
+- name: FREQUENCY_MIN
+  required: true
+- name: LOCATIONS
+  required: true
+- name: MANUALLY_ASSIGNED_APPS
+  required: true
+- name: NAME
+  required: true
+- name: SCRIPT
+  required: true
+- name: TAGS
+  required: true
+- name: TAGS
+  required: true
 
 objects:
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: synthetic-monitor-config
+    namespace: ${NAMESPACE}
+  data:
+    enabled: "${ENABLED}"
+    frequencyMin: "${FREQUENCY_MIN}"
+    locations: "${LOCATIONS}"
+    manuallyAssignedApps: "${MANUALLY_ASSIGNED_APPS}"
+    name: "${NAME}"
+    script: "${SCRIPT}"
+    tags: "${TAGS}"
+    type: "${TYPE}"
+
 - apiVersion: hive.openshift.io/v1
   kind: SelectorSyncSet
   metadata:

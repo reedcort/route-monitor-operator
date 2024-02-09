@@ -2,6 +2,8 @@ package util
 
 import (
 	"context"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"regexp"
 
 	compare "github.com/hashicorp/go-version"
@@ -74,4 +76,14 @@ func ClusterHasPrivateNLB(kclient client.Client) (result bool) {
 	}
 
 	return false
+}
+
+// GetOperatorConfigMap retrieves the default configMap data for the Hostedcluster configMap
+func GetOperatorConfigMap(kubeClient client.Client, namespace string, configMapName string) (*corev1.ConfigMap, error) {
+	configMap := &corev1.ConfigMap{}
+	err := kubeClient.Get(
+		context.TODO(),
+		types.NamespacedName{Namespace: namespace,
+			Name: configMapName}, configMap)
+	return configMap, err
 }
