@@ -47,6 +47,7 @@ type MonitorDetails struct {
 }
 
 const annotationHTTPMonitorCreated = "hypershift.openshift.io/HTTP-monitor"
+const annotationMonitorID = "hypershift.openshift.io/monitorID"
 const apiURL = "https://hrm15629.live.dynatrace.com/api/v1/synthetic/monitors"
 
 var DefaultConfigMap = "synthetic-monitor-configmap"
@@ -85,7 +86,7 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Check if the HostedCluster is marked for deletion
 	if hostedCluster.DeletionTimestamp != nil {
-		err = DeleteHTTPMonitor(hostedCluster, "", "")
+		err = DeleteHTTPMonitor(hostedCluster, "")
 		if err != nil {
 			log.Error(err, "error deleting HTTP monitor")
 			return utilreconcile.RequeueWith(err)
@@ -100,14 +101,14 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if ready && strings.Contains(string(hostedCluster.Spec.Platform.AWS.EndpointAccess), "Public") {
 		// Check if HTTP monitor has already been created
 		if hostedCluster.Annotations[annotationHTTPMonitorCreated] == "" {
-			//FIXME monitorID needs to be stored somewhere so it can used during the deletion process
-			_, err := CreateHTTPMonitor(apiURL, "", hostedCluster, configMap)
+			monitorID, err := CreateHTTPMonitor(apiURL, "", hostedCluster, configMap)
 			if err != nil {
 				log.Error(err, "error creating HTTP monitor")
 				return utilreconcile.RequeueWith(err)
 			}
 
 			// Annotate HostedCluster to indicate it has an HTTP monitor
+			hostedCluster.Annotations[annotationMonitorID] = monitorID
 			hostedCluster.Annotations[annotationHTTPMonitorCreated] = "true"
 			if err = r.Client.Update(ctx, hostedCluster); err != nil {
 				log.Error(err, "error updating HostedCluster annotations")
@@ -115,8 +116,7 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			}
 		}
 	} else {
-		// If not ready, re-queue the HostedCluster for further reconciliation
-		log.Info("HostedCluster not ready. Requeuing for reconciliation.")
+		log.Info("HostedCluster not ready")
 		return utilreconcile.RequeueWith(err)
 	}
 
@@ -125,10 +125,8 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 // IsHostedClusterReady checks if a HostedCluster is ready
 func IsHostedClusterReady(hostedCluster *v1beta1.HostedCluster) bool {
-	for _, condition := range hostedCluster.Status.Version.History {
-		if condition.State == "Completed" {
-			return true
-		}
+	if hostedCluster.Status.ControlPlaneEndpoint.Host != "" {
+		return true
 	}
 	return false
 }
@@ -140,7 +138,7 @@ func CreateHTTPMonitor(apiURL, accessToken string, hostedCluster *v1beta1.Hosted
 		"name":                 configMap.Data["name"],
 		"enabled":              configMap.Data["enabled"],
 		"frequencyMin":         configMap.Data["frequencyMin"],
-		"locations":            configMap.Data["locations"],
+		"locations":            hostedCluster.Spec.Platform.AWS.Region, //configMap.Data["locations"],
 		"manuallyAssignedApps": configMap.Data["manuallyAssignedApps"],
 		"script":               configMap.Data["script"],
 		"tags":                 configMap.Data["tags"],
@@ -195,10 +193,10 @@ func CreateHTTPMonitor(apiURL, accessToken string, hostedCluster *v1beta1.Hosted
 }
 
 // DeleteHTTPMonitor deletes a Dynatrace HTTP monitor
-func DeleteHTTPMonitor(hostedCluster *v1beta1.HostedCluster, monitorID string, accessToken string) error {
+func DeleteHTTPMonitor(hostedCluster *v1beta1.HostedCluster, accessToken string) error {
 
 	if hostedCluster.Annotations[annotationHTTPMonitorCreated] == "true" {
-		req, err := http.NewRequest("DELETE", apiURL+"/"+monitorID, nil)
+		req, err := http.NewRequest("DELETE", apiURL+"/"+hostedCluster.Annotations[annotationMonitorID], nil)
 		if err != nil {
 			return fmt.Errorf("error creating HTTP request: %v", err)
 		}
