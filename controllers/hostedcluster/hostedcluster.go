@@ -101,11 +101,14 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if ready && strings.Contains(string(hostedCluster.Spec.Platform.AWS.EndpointAccess), "Public") {
 		// Check if HTTP monitor has already been created
 		if hostedCluster.Annotations[annotationHTTPMonitorCreated] == "" {
+			// TODO add logic to grab dynatrace url
 			monitorID, err := CreateHTTPMonitor(apiURL, "", hostedCluster, configMap)
 			if err != nil {
 				log.Error(err, "error creating HTTP monitor")
 				return utilreconcile.RequeueWith(err)
 			}
+
+			//TODO add finilizer so HTTP moniter delete logic has a chance to run before hsoted cluster is deleted
 
 			// Annotate HostedCluster to indicate it has an HTTP monitor
 			hostedCluster.Annotations[annotationMonitorID] = monitorID
@@ -135,13 +138,13 @@ func IsHostedClusterReady(hostedCluster *v1beta1.HostedCluster) bool {
 func CreateHTTPMonitor(apiURL, accessToken string, hostedCluster *v1beta1.HostedCluster, configMap *corev1.ConfigMap) (string, error) {
 	// Construct payload for the synthetic monitor
 	payload := map[string]interface{}{
-		"name":                 configMap.Data["name"],
+		"name":                 configMap.Data["name"], // TODO unique name
 		"enabled":              configMap.Data["enabled"],
 		"frequencyMin":         configMap.Data["frequencyMin"],
-		"locations":            hostedCluster.Spec.Platform.AWS.Region, //configMap.Data["locations"],
+		"locations":            hostedCluster.Spec.Platform.AWS.Region, //configMap.Data["locations"], TODO setup region mapping
 		"manuallyAssignedApps": configMap.Data["manuallyAssignedApps"],
 		"script":               configMap.Data["script"],
-		"tags":                 configMap.Data["tags"],
+		"tags":                 configMap.Data["tags"], // TODO specifies that is managed by RMO & clusterid
 		"type":                 configMap.Data["type"],
 	}
 
